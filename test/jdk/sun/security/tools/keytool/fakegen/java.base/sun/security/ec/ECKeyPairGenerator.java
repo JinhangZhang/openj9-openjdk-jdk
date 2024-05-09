@@ -26,6 +26,7 @@ package sun.security.ec;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPoint;
 
@@ -51,7 +52,28 @@ public final class ECKeyPairGenerator extends KeyPairGeneratorSpi {
     @Override
     public void initialize(AlgorithmParameterSpec params, SecureRandom random)
             throws InvalidAlgorithmParameterException {
-        throw new UnsupportedOperationException();
+        ECParameterSpec ecSpec = null;
+
+        if (params instanceof ECParameterSpec) {
+            ECParameterSpec ecParams = (ECParameterSpec) params;
+            ecSpec = ECUtil.getECParameterSpec(null, ecParams);
+            if (ecSpec == null) {
+                throw new InvalidAlgorithmParameterException(
+                    "Unsupported curve: " + params);
+            }
+        } else if (params instanceof ECGenParameterSpec) {
+            String name = ((ECGenParameterSpec) params).getName();
+            ecSpec = ECUtil.getECParameterSpec(null, name);
+            if (ecSpec == null) {
+                throw new InvalidAlgorithmParameterException(
+                    "Unknown curve name: " + name);
+            }
+        } else {
+            throw new InvalidAlgorithmParameterException(
+                "ECParameterSpec or ECGenParameterSpec required for EC");
+        }
+
+        this.keySize = ecSpec.getCurve().getField().getFieldSize();
     }
 
     @Override
