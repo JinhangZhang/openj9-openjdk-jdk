@@ -25,12 +25,18 @@ import jdk.test.lib.process.ProcessTools;
 import jdk.test.lib.security.SecurityUtils;
 
 import javax.net.ssl.*;
+import javax.print.DocFlavor.STRING;
+
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import jdk.test.lib.security.SecurityUtils;
 
 /*
  * @test
@@ -50,8 +56,9 @@ public class DTLSWontNegotiateV10 {
 
     private static final int READ_TIMEOUT_SECS = Integer.getInteger("readtimeout", 30);
 
+    private static boolean clientFailed = false;
     public static void main(String[] args) throws Exception {
-        if (args[0].equals(DTLSV_1_0)) {
+        if (args[0].equals(DTLSV_1_0) && !(SecurityUtils.isFIPS())) {
             SecurityUtils.removeFromDisabledTlsAlgs(DTLSV_1_0);
         }
 
@@ -60,8 +67,17 @@ public class DTLSWontNegotiateV10 {
             // args: protocol server-port
             try (DTLSClient client = new DTLSClient(args[0], Integer.parseInt(args[1]))) {
                 client.run();
+            } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+                SecurityUtils.FipsSSLHandshakeException(sslhe, null, args[0]);
+                clientFailed = true;
             }
-
+            if (clientFailed) {
+                try (FileWriter writer = new FileWriter("client_failed.flag")) {
+                    writer.write("true");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         } else {
             // server process
             // args: protocol
@@ -74,11 +90,22 @@ public class DTLSWontNegotiateV10 {
                     break;
                 } catch (SocketTimeoutException exc) {
                     System.out.println("The server timed-out waiting for packets from the client.");
+                } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+                    SecurityUtils.FipsSSLHandshakeException(sslhe, null, args[0]);
                 }
             }
+
+            boolean clientFailed = new File("client_failed.flag").exists();
             if (tries == totalAttempts) {
-                throw new RuntimeException("The server/client communications timed-out after " + totalAttempts + " tries.");
+                if (clientFailed) {
+                    System.out.println("The server attempted " + totalAttempts + " times, but the client encountered SSLHandshakeException, causing repeated failures.");
+                    new File("client_failed.flag").delete();
+                    return;
+                } else {
+                    throw new RuntimeException("The server/client communications timed-out after " + totalAttempts + " tries.");
+                }
             }
+            
         }
     }
 

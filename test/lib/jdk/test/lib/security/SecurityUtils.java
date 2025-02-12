@@ -28,8 +28,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.KeyStore;
 import java.security.Security;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jdk.test.lib.security.DiffieHellmanGroup;
@@ -220,4 +223,57 @@ public final class SecurityUtils {
     }
 
     private SecurityUtils() {}
+
+    public static final List<String> TLS_PROTOCOLS = new ArrayList<>();
+    public static final Map<String, String> TLS_CIPHERSUITES = new HashMap<>();
+
+    static {
+        TLS_PROTOCOLS.add("TLSv1.2");
+        TLS_PROTOCOLS.add("TLSv1.3");
+
+        TLS_CIPHERSUITES.put("TLS_AES_128_GCM_SHA256", "TLSv1.3");
+        TLS_CIPHERSUITES.put("TLS_AES_256_GCM_SHA384", "TLSv1.3");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256", "TLSv1.2");
+        TLS_CIPHERSUITES.put("TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256", "TLSv1.2");
+    }
+
+    public static boolean isFIPS() {
+        System.out.println("semeru.fips is: " + System.getProperty("semeru.fips"));
+        return Boolean.parseBoolean(System.getProperty("semeru.fips"));
+    }
+
+    public static String getFipsProfile() {
+        System.out.println("semeru.customprofile is: " + System.getProperty("semeru.customprofile"));
+        return System.getProperty("semeru.customprofile");
+    }
+
+    public static void FipsSSLHandshakeException(javax.net.ssl.SSLHandshakeException sslhe, String cipher, String protocol) {
+        if (!isFIPS()) {
+            System.out.println("Unexpected exception is caught in Non-FIPS mode.");
+            sslhe.printStackTrace();
+            return;
+        }
+    
+        boolean invalidProtocol = (cipher == null && protocol != null && !TLS_PROTOCOLS.contains(protocol));
+        boolean invalidCipher = (cipher != null && protocol == null && !TLS_CIPHERSUITES.containsKey(cipher));
+    
+        if (invalidProtocol || invalidCipher) {
+            String expectedMsg = "No appropriate protocol (protocol is disabled or cipher suites are inappropriate)";
+            if (expectedMsg.equals(sslhe.getMessage())) {
+                System.out.println("Expected exception msg: <" + expectedMsg + "> is caught.");
+            } else {
+                System.out.println("Unexpected exception msg: <" + sslhe.getMessage() + "> is caught.");
+            }
+        } else {
+            System.out.println("Unexpected exception is caught.");
+            sslhe.printStackTrace();
+        }
+    }
+    
 }
