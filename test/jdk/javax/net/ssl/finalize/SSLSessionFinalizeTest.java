@@ -24,13 +24,18 @@
 /*
  * @test
  * @summary Test behavior related to finalize
+ * @library /test/lib
  * @run main/othervm  SSLSessionFinalizeTest
  */
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 
 import javax.net.ssl.SSLServerSocket;
@@ -40,6 +45,8 @@ import javax.net.ssl.SSLSessionBindingEvent;
 import javax.net.ssl.SSLSessionBindingListener;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+
+import jdk.test.lib.security.SecurityUtils;
 
 public class SSLSessionFinalizeTest {
 
@@ -94,6 +101,7 @@ public class SSLSessionFinalizeTest {
             (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
         SSLServerSocket sslServerSocket =
             (SSLServerSocket) sslssf.createServerSocket(serverPort);
+
         serverPort = sslServerSocket.getLocalPort();
 
         /*
@@ -108,7 +116,7 @@ public class SSLSessionFinalizeTest {
             OutputStream sslOS = sslSocket.getOutputStream();
 
             sslIS.read();
-            sslOS.write(85);
+            sslOS.write((byte)85);
             sslOS.flush();
 
             sslSocket.close();
@@ -132,14 +140,14 @@ public class SSLSessionFinalizeTest {
 
         SSLSocketFactory sslsf =
             (SSLSocketFactory) SSLSocketFactory.getDefault();
-
         try {
                 SSLSocket sslSocket = (SSLSocket)
                     sslsf.createSocket("localhost", serverPort);
+
                 InputStream sslIS = sslSocket.getInputStream();
                 OutputStream sslOS = sslSocket.getOutputStream();
 
-            sslOS.write(280);
+            sslOS.write((byte)280);
             sslOS.flush();
             sslIS.read();
 
@@ -191,6 +199,11 @@ public class SSLSessionFinalizeTest {
             System.getProperty("test.src", "./") + "/" + pathToStores +
                 "/" + trustStoreFile;
 
+        if (SecurityUtils.isFIPS()) {
+            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        }
+
         System.setProperty("javax.net.ssl.keyStore", keyFilename);
         System.setProperty("javax.net.ssl.keyStorePassword", passwd);
         System.setProperty("javax.net.ssl.trustStore", trustFilename);
@@ -198,6 +211,20 @@ public class SSLSessionFinalizeTest {
 
         if (debug)
             System.setProperty("javax.net.debug", "all");
+
+        try {
+            KeyStore trustStore = SecurityUtils.tryLoadKeyStore(trustFilename, passwd);
+            System.out.println("Successfully loaded TrustStore.");
+        } catch (IOException | CertificateException | java.security.NoSuchAlgorithmException e) {
+            System.out.println("Failed to load TrustStore: " + e.getMessage());
+        }
+
+        try {
+            KeyStore keyStore = SecurityUtils.tryLoadKeyStore(keyFilename, passwd);
+            System.out.println("Successfully loaded KeyStore.");
+        } catch (IOException | CertificateException | java.security.NoSuchAlgorithmException e) {
+            System.out.println("Failed to load KeyStore: " + e.getMessage());
+        }
 
         /*
          * Start the tests.
