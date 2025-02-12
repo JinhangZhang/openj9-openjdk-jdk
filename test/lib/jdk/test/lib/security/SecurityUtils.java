@@ -24,12 +24,17 @@
 package jdk.test.lib.security;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.Key;
 import java.security.KeyStore;
 import java.security.Security;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -275,5 +280,27 @@ public final class SecurityUtils {
             sslhe.printStackTrace();
         }
     }
-    
+
+    public static String extensionP12(String keyFilename, String passwd) {
+        String p12keyFilename = keyFilename + ".p12";
+        try {
+            FileInputStream keyFileInputStream = new FileInputStream(keyFilename);
+
+            KeyStore keystore = KeyStore.getInstance("PKCS12");
+            keystore.load(keyFileInputStream, passwd.toCharArray());
+
+            FileOutputStream p12KeystoreFileOutputStream = new FileOutputStream(p12keyFilename);
+
+            keystore.store(p12KeystoreFileOutputStream, passwd.toCharArray());
+
+            keyFileInputStream.close();
+            p12KeystoreFileOutputStream.close();
+
+            System.out.println("Keystore successfully converted to PKCS12 extension: " + p12keyFilename);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return p12keyFilename;
+    }
+
 }
