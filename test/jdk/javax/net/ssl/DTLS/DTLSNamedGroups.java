@@ -38,6 +38,8 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import java.security.Security;
 
+import jdk.test.lib.security.SecurityUtils;
+
 /**
  * Test DTLS client authentication.
  */
@@ -73,7 +75,9 @@ public class DTLSNamedGroups extends DTLSOverDatagram {
     }
 
     public static void main(String[] args) throws Exception {
-        Security.setProperty("jdk.tls.disabledAlgorithms", "");
+        if (!(SecurityUtils.isFIPS())) {
+                Security.setProperty("jdk.tls.disabledAlgorithms", "");
+        }
 
         runTest(new String[] {
                         "x25519",
