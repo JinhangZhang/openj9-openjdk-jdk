@@ -212,20 +212,6 @@ public class SSLSessionFinalizeTest {
         if (debug)
             System.setProperty("javax.net.debug", "all");
 
-        try {
-            KeyStore trustStore = SecurityUtils.tryLoadKeyStore(trustFilename, passwd);
-            System.out.println("Successfully loaded TrustStore.");
-        } catch (IOException | CertificateException | java.security.NoSuchAlgorithmException e) {
-            System.out.println("Failed to load TrustStore: " + e.getMessage());
-        }
-
-        try {
-            KeyStore keyStore = SecurityUtils.tryLoadKeyStore(keyFilename, passwd);
-            System.out.println("Successfully loaded KeyStore.");
-        } catch (IOException | CertificateException | java.security.NoSuchAlgorithmException e) {
-            System.out.println("Failed to load KeyStore: " + e.getMessage());
-        }
-
         /*
          * Start the tests.
          */
