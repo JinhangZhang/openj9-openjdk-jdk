@@ -24,6 +24,7 @@
 /*
  * @test
  * @bug 4482187
+ * @library /test/lib
  * @summary HttpsClient tests are failing for build 71
  * @run main/othervm GetResponseCode
  *
@@ -36,6 +37,8 @@ import java.io.*;
 import java.net.*;
 import javax.net.ssl.*;
 import java.security.cert.Certificate;
+
+import jdk.test.lib.security.SecurityUtils;
 
 public class GetResponseCode implements HostnameVerifier {
     /*
@@ -153,6 +156,11 @@ public class GetResponseCode implements HostnameVerifier {
         System.setProperty("javax.net.ssl.keyStorePassword", passwd);
         System.setProperty("javax.net.ssl.trustStore", trustFilename);
         System.setProperty("javax.net.ssl.trustStorePassword", passwd);
+
+        if (SecurityUtils.isFIPS()) {
+            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        }
 
         if (debug)
             System.setProperty("javax.net.debug", "all");
