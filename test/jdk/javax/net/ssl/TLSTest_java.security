@@ -20,6 +20,7 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.extends = Restricte
 
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.jce.provider.2 = sun.security.provider.Sun [+ \
     {KeyStore, JKS, *}, \
+    {KeyStore, PKCS12, *}, \
     {MessageDigest, SHA-1, *}]
 
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.jce.provider.4 = com.sun.crypto.provider.SunJCE [{AlgorithmParameters, PBES2, *}, \
