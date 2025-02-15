@@ -141,12 +141,15 @@ public class GetInstance {
             String algorithm) throws NoSuchAlgorithmException {
         // in the almost all cases, the first service will work
         // avoid taking long path if so
+        System.out.println("GetInstance --> getInstance(String type, Class<?> clazz, String algorithm)");
         ProviderList list = Providers.getProviderList();
         Service firstService = list.getService(type, algorithm);
         if (firstService == null) {
+            System.out.println("GetInstance --> getInstance(String type, Class<?> clazz, String algorithm): firstService is null");
             throw new NoSuchAlgorithmException
                     (algorithm + " " + type + " not available");
         }
+        System.out.println("The firstService is not null and it's provider is: " + firstService.getProvider().getName() + ", the type is: " + type + ", the algorithm is: " + algorithm);
         NoSuchAlgorithmException failure;
         try {
             return getInstance(firstService, clazz);
@@ -156,13 +159,17 @@ public class GetInstance {
         // if we cannot get the service from the preferred provider,
         // fail over to the next
         Iterator<Service> services = list.getServices(type, algorithm);
+        System.out.println("GetInstance --> did not get the service from the preferred provider.");
         while (services.hasNext()) {
+            System.out.println("GetInstance --> did not get the service from the preferred provider. fail over to the next");
             Service s = services.next();
             if (s == firstService) {
+                System.out.println("GetInstance --> did not get the service from the preferred provider. fail over to the next; s == firstService");
                 // do not retry initial failed service
                 continue;
             }
             try {
+                System.out.println("GetInstance --> did not get the service from the preferred provider. fail over to the next; s != firstService, provider is: " + s.getProvider().getName());
                 return getInstance(s, clazz);
             } catch (NoSuchAlgorithmException e) {
                 failure = e;

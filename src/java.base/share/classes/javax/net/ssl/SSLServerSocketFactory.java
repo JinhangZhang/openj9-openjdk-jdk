@@ -66,11 +66,14 @@ public abstract class SSLServerSocketFactory extends ServerSocketFactory {
      * @see SSLContext#getDefault
      */
     public static ServerSocketFactory getDefault() {
+        System.out.println("ServerSocketFactory --> getDefault()");
         if (DefaultFactoryHolder.defaultFactory != null) {
+            System.out.println("ServerSocketFactory --> getDefault(): DefaultFactoryHolder.defaultFactory !- null");
             return DefaultFactoryHolder.defaultFactory;
         }
 
         try {
+            System.out.println("ServerSocketFactory --> getDefault(): SSLContext.getDefault().getServerSocketFactory()");
             return SSLContext.getDefault().getServerSocketFactory();
         } catch (NoSuchAlgorithmException | UnsupportedOperationException e) {
             return new DefaultSSLServerSocketFactory(e);

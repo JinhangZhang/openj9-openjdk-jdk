@@ -199,12 +199,17 @@ public class SSLSessionFinalizeTest {
             System.getProperty("test.src", "./") + "/" + pathToStores +
                 "/" + trustStoreFile;
 
-        if (SecurityUtils.isFIPS()) {
-            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
-            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
-        }
+        // if (SecurityUtils.isFIPS()) {
+        //     keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+        //     trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        // }
+        System.out.println("keyFilename path is: " + keyFilename);
+        System.out.println("trustFilename path is: " + trustFilename);
 
         System.setProperty("javax.net.ssl.keyStore", keyFilename);
+        System.out.println("System.getProperty(javax.net.ssl.keyStore, value) is: " + System.getProperty("javax.net.ssl.keyStore", ""));
+        System.out.println("System.getProperty(javax.net.ssl.keyStore) is: " + System.getProperty("javax.net.ssl.keyStore"));
+
         System.setProperty("javax.net.ssl.keyStorePassword", passwd);
         System.setProperty("javax.net.ssl.trustStore", trustFilename);
         System.setProperty("javax.net.ssl.trustStorePassword", passwd);

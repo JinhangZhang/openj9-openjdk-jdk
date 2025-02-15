@@ -899,9 +899,11 @@ public abstract class SSLContextImpl extends SSLContextSpi {
             Exception reserved = null;
             TrustManager[] tmMediator = null;
             try {
+                System.out.println("SSLContextImpl --> DefaultManagerHolder --> static block: getTrustManagers");
                 tmMediator = getTrustManagers();
             } catch (Exception e) {
                 reserved = e;
+                System.out.println("SSLContextImpl --> DefaultManagerHolder --> static block: getTrustManagers; Failed to load default trust managers");
                 if (SSLLogger.isOn && SSLLogger.isOn("ssl,defaultctx")) {
                     SSLLogger.warning(
                             "Failed to load default trust managers", e);
@@ -911,9 +913,11 @@ public abstract class SSLContextImpl extends SSLContextSpi {
             KeyManager[] kmMediator = null;
             if (reserved == null) {
                 try {
+                    System.out.println("SSLContextImpl --> DefaultManagerHolder --> static block: getKeyManagers");
                     kmMediator = getKeyManagers();
                 } catch (Exception e) {
                     reserved = e;
+                    System.out.println("SSLContextImpl --> DefaultManagerHolder --> static block: getTrustManagers; Failed to load default key managers");
                     if (SSLLogger.isOn && SSLLogger.isOn("ssl,defaultctx")) {
                         SSLLogger.warning(
                                 "Failed to load default key managers", e);
@@ -922,6 +926,7 @@ public abstract class SSLContextImpl extends SSLContextSpi {
             }
 
             if (reserved != null) {
+                System.out.println("SSLContextImpl --> DefaultManagerHolder --> static block: reserved != null");
                 trustManagers = new TrustManager[0];
                 keyManagers = new KeyManager[0];
 
@@ -941,6 +946,8 @@ public abstract class SSLContextImpl extends SSLContextSpi {
         private static TrustManager[] getTrustManagers() throws Exception {
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(
                     TrustManagerFactory.getDefaultAlgorithm());
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getTrustManagers(): TrustManagerFactory getDefaultAlgorithm is: " + TrustManagerFactory.getDefaultAlgorithm());
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getTrustManagers(): tmf provider is: " + tmf.getProvider().getName());
             if ("SunJSSE".equals(tmf.getProvider().getName())) {
                 // The implementation will load the default KeyStore
                 // automatically.  Cached trust materials may be used
@@ -972,6 +979,10 @@ public abstract class SSLContextImpl extends SSLContextSpi {
             String defaultKeyStore = props.get("keyStore");
             String defaultKeyStoreType = props.get("keyStoreType");
             String defaultKeyStoreProvider = props.get("keyStoreProvider");
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore is: " + defaultKeyStore);
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStoreType is: " + defaultKeyStoreType);
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default KeyStoreProvider is: " + defaultKeyStoreProvider);
+
             if (SSLLogger.isOn && SSLLogger.isOn("ssl,defaultctx")) {
                 SSLLogger.fine("keyStore is : " + defaultKeyStore);
                 SSLLogger.fine("keyStore type is : " +
@@ -992,6 +1003,7 @@ public abstract class SSLContextImpl extends SSLContextSpi {
             try {
                 if (!defaultKeyStore.isEmpty() &&
                         !NONE.equals(defaultKeyStore)) {
+                    System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore is not empty: " + defaultKeyStore);
                     fs = new FileInputStream(defaultKeyStore);
                 }
 
@@ -1000,14 +1012,18 @@ public abstract class SSLContextImpl extends SSLContextSpi {
                     passwd = defaultKeyStorePassword.toCharArray();
                 }
 
+                System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore type is: " + defaultKeyStoreType);
                 // Try to initialize key store.
                 if ((defaultKeyStoreType.length()) != 0) {
+                    System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore type is not 0: " + defaultKeyStoreType);
                     if (SSLLogger.isOn && SSLLogger.isOn("ssl,defaultctx")) {
                         SSLLogger.finest("init keystore");
                     }
                     if (defaultKeyStoreProvider.isEmpty()) {
+                        System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore provider is empty: " + defaultKeyStoreProvider);
                         ks = KeyStore.getInstance(defaultKeyStoreType);
                     } else {
+                        System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): default keyStore provider is not empty: " + defaultKeyStoreProvider);
                         ks = KeyStore.getInstance(defaultKeyStoreType,
                                             defaultKeyStoreProvider);
                     }
@@ -1029,6 +1045,7 @@ public abstract class SSLContextImpl extends SSLContextSpi {
                 SSLLogger.fine("init keymanager of type " +
                     KeyManagerFactory.getDefaultAlgorithm());
             }
+            System.out.println("SSLContextImpl --> DefaultManagersHolder --> getKeyManagers(): KeyManagerFactory getDefaultAlgorithm() is: " + KeyManagerFactory.getDefaultAlgorithm());
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(
                 KeyManagerFactory.getDefaultAlgorithm());
 
@@ -1084,11 +1101,13 @@ public abstract class SSLContextImpl extends SSLContextSpi {
 
         // public constructor for SSLContext.getInstance("Default")
         public DefaultSSLContext() throws Exception {
+            System.out.println("SSLContextImpl --> DefaultSSLContext --> constructor");
             if (DefaultManagersHolder.reservedException != null) {
                 throw DefaultManagersHolder.reservedException;
             }
 
             try {
+                System.out.println("SSLContextImpl --> DefaultSSLContext --> super.engineInit");
                 super.engineInit(DefaultManagersHolder.keyManagers,
                         DefaultManagersHolder.trustManagers, null);
             } catch (Exception e) {
