@@ -109,9 +109,13 @@ public class SSLContext {
     public static SSLContext getDefault() throws NoSuchAlgorithmException {
         SSLContext temporaryContext = defaultContext;
         if (temporaryContext == null) {
+            System.out.println("SSLContext --> getDefault(): temporaryContext == null");
             temporaryContext = SSLContext.getInstance("Default");
+            System.out.println("SSLContext --> getDefault(): SSLContext.getInstance(\"Default\")");
             if (!VH_DEFAULT_CONTEXT.compareAndSet(null, temporaryContext)) {
+                System.out.println("SSLContext --> getDefault(): !VH_DEFAULT_CONTEXT.compareAndSet(null, temporaryContext)");
                 temporaryContext = defaultContext;
+                System.out.println("SSLContext --> getDefault(): temporaryContext = defaultContext");
             }
         }
 
@@ -175,9 +179,12 @@ public class SSLContext {
      */
     public static SSLContext getInstance(String protocol)
             throws NoSuchAlgorithmException {
+        System.out.println("SSLContext --> getInstance(String protocol)");
         Objects.requireNonNull(protocol, "null protocol name");
+        System.out.println("SSLContext --> getInstance(): Objects.requireNonNull(protocol, \"null protocol name\")");
         GetInstance.Instance instance = GetInstance.getInstance
                 ("SSLContext", SSLContextSpi.class, protocol);
+        System.out.println("SSLContext --> GetInstance.getInstance(\"SSLContext\", SSLContextSpi.class, protocol)");
         return new SSLContext((SSLContextSpi)instance.impl, instance.provider,
                 protocol);
     }
