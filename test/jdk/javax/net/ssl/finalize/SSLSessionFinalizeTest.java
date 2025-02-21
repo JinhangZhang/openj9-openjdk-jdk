@@ -198,11 +198,17 @@ public class SSLSessionFinalizeTest {
         String trustFilename =
             System.getProperty("test.src", "./") + "/" + pathToStores +
                 "/" + trustStoreFile;
+        
+        System.out.println("Before extension.....");
+        System.out.println("keyFilename path is: " + keyFilename);
+        System.out.println("trustFilename path is: " + trustFilename);
 
-        // if (SecurityUtils.isFIPS()) {
-        //     keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
-        //     trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
-        // }
+        if (SecurityUtils.isFIPS()) {
+            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        }
+
+        System.out.println("After extension.....");
         System.out.println("keyFilename path is: " + keyFilename);
         System.out.println("trustFilename path is: " + trustFilename);
 
