@@ -85,6 +85,7 @@ abstract class NativeDigest extends MessageDigestSpi implements Cloneable {
         this.algorithm = algorithm;
         this.digestLength = digestLength;
         this.algIndx = algIndx;
+        System.out.println("NativeDigest algo is: " + algorithm + ", index is: " + algIndx);
         this.context = nativeCrypto.DigestCreateContext(0, algIndx);
 
         if (this.context == -1) {
