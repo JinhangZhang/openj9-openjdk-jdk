@@ -78,12 +78,12 @@ public class SecureValidation {
                 MGF1ParameterSpec.SHA512, 48, TRAILER_FIELD_BC);
 
         // Sign with PSS with SHA-384 and SHA-512
-        Document sign = XMLUtils.signer(privateKey, cert)
+        var signer = XMLUtils.signer(privateKey, cert)
                 .dm(DigestMethod.SHA384)
                 .sm(SignatureMethod.RSA_PSS, new RSAPSSParameterSpec(pspec));
 		Document signed;
         try {
-            signed = sign.sign(doc);
+            signed = signer.sign(doc);
         } catch (javax.xml.crypto.dsig.XMLSignatureException xmlse) {
             Throwable cause = xmlse.getCause();
             if (cause instanceof java.security.InvalidAlgorithmParameterException) {
