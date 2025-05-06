@@ -55,6 +55,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.security.PrivateKey;
+import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
@@ -73,8 +74,9 @@ public class SecureValidation {
         g.generate(2048);
         X509Certificate cert = g.getSelfCertificate(new X500Name("CN=Me"), 100);
         PrivateKey privateKey = g.getPrivateKey();
+        PSSParameterSpec pspec;
         try {
-            PSSParameterSpec pspec = new PSSParameterSpec("SHA-384", "MGF1",
+            pspec = new PSSParameterSpec("SHA-384", "MGF1",
                 MGF1ParameterSpec.SHA512, 48, TRAILER_FIELD_BC);
         } catch (javax.xml.crypto.dsig.XMLSignatureException xmlse) {
             Throwable cause = xmlse.getCause();
