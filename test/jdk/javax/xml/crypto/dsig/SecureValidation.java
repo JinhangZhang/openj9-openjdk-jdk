@@ -74,22 +74,24 @@ public class SecureValidation {
         g.generate(2048);
         X509Certificate cert = g.getSelfCertificate(new X500Name("CN=Me"), 100);
         PrivateKey privateKey = g.getPrivateKey();
-        PSSParameterSpec pspec;
-        try {
-            pspec = new PSSParameterSpec("SHA-384", "MGF1",
+        PSSParameterSpec pspec = new PSSParameterSpec("SHA-384", "MGF1",
                 MGF1ParameterSpec.SHA512, 48, TRAILER_FIELD_BC);
-        } catch (javax.xml.crypto.dsig.XMLSignatureException xmlse) {
-            Throwable cause = xmlse.getCause();
-            if (cause instanceof java.security.InvalidAlgorithmParameterException) {
-                if (Signature.getInstance("RSA-PSS").getProvider().getName().equals("OpenJCEPlus")
-                && cause.getMessage().equals("The message digest within the PSSParameterSpec does not match the MGF message digest.")
-                ) {
-                    System.out.println("Expected error message is caught for OpenJCEPlus provider.");
-                    return;
-                }
-            }
-            throw xmlse;
-        }
+        // PSSParameterSpec pspec;
+        // try {
+        //     pspec = new PSSParameterSpec("SHA-384", "MGF1",
+        //         MGF1ParameterSpec.SHA512, 48, TRAILER_FIELD_BC);
+        // } catch (javax.xml.crypto.dsig.XMLSignatureException xmlse) {
+        //     Throwable cause = xmlse.getCause();
+        //     if (cause instanceof java.security.InvalidAlgorithmParameterException) {
+        //         if (Signature.getInstance("RSA-PSS").getProvider().getName().equals("OpenJCEPlus")
+        //         && cause.getMessage().equals("The message digest within the PSSParameterSpec does not match the MGF message digest.")
+        //         ) {
+        //             System.out.println("Expected error message is caught for OpenJCEPlus provider.");
+        //             return;
+        //         }
+        //     }
+        //     throw xmlse;
+        // }
 
         // Sign with PSS with SHA-384 and SHA-512
         Document signed = XMLUtils.signer(privateKey, cert)
