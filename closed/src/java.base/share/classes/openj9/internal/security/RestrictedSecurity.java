@@ -623,7 +623,9 @@ public final class RestrictedSecurity {
             props.setProperty("keystore.type", keyStoreType);
         }
         String keyStore = restricts.keyStore;
+        System.out.println("RestrictedSecurity keystore is: " + keyStore);
         if (!isNullOrBlank(keyStore)) {
+            System.out.println("RestrictedSecurity keystore is not null.");
             // SSL property "javax.net.ssl.keyStore" set at the JVM level via system properties.
             System.setProperty("javax.net.ssl.keyStore", keyStore);
         }
