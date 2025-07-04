@@ -114,6 +114,7 @@ public class KAKeyDerivation implements SSLKeyDerivation {
                 // If PSK is not in use, Early Secret will still be
                 // HKDF-Extract(0, 0).
                 byte[] zeros = new byte[hashAlg.hashLength];
+                System.out.println("KAKeyDerivation hashAlg hkdfAlgorithm is: " + hashAlg.hkdfAlgorithm);
                 KDF hkdf = KDF.getInstance(hashAlg.hkdfAlgorithm);
                 earlySecret = hkdf.deriveKey("TlsEarlySecret",
                         HKDFParameterSpec.ofExtract().addSalt(zeros)
