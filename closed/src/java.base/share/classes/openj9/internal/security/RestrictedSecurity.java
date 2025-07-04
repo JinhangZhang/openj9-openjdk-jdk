@@ -624,7 +624,7 @@ public final class RestrictedSecurity {
         }
         String keyStore = restricts.keyStore;
         System.out.println("RestrictedSecurity keystore is: " + keyStore);
-        if ((!keyStore.equals("NONE")) || !isNullOrBlank(keyStore)) {
+        if ((!keyStore.equals("NONE")) && !isNullOrBlank(keyStore)) {
             System.out.println("RestrictedSecurity keystore is not null.");
             // SSL property "javax.net.ssl.keyStore" set at the JVM level via system properties.
             System.setProperty("javax.net.ssl.keyStore", keyStore);
