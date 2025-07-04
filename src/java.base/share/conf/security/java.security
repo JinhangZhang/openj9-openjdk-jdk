@@ -212,7 +212,7 @@ RestrictedSecurity.NSS.140-2.securerandom.algorithm = PKCS11
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.name = OpenJCEPlusFIPS Cryptographic Module FIPS 140-3
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.default = false
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.fips = true
-RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.hash = SHA256:cd6be2cd5df075c7963e553172e7f92536382c5cc8ef804d62c596fe228e586d
+RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.hash = SHA256:6076e578dbaf2ea32c4cab67264a709c03e938b7c17cb5d86c96b8de8013d88f
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.number = Certificate #XXX
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.policy = https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.desc.sunsetDate = 2026-09-21
@@ -333,7 +333,10 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.jce.provider.2 = sun.security.provi
     {CertStore, Collection, ImplementedIn=Software}, \
     {CertStore, com.sun.security.IndexedCollection, ImplementedIn=Software}, \
     {Configuration, JavaLoginConfig, *}, \
-    {Policy, JavaPolicy, *}]
+    {Policy, JavaPolicy, *}, \
+    {KeyStore, JKS, *}, \
+    {KeyStore, PKCS12, *}, \
+    {MessageDigest, SHA-1, *}]
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.jce.provider.3 = sun.security.ssl.SunJSSE [ \
     {KeyManagerFactory, NewSunX509, *}, \
     {KeyManagerFactory, SunX509, *}, \
@@ -345,6 +348,13 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.jce.provider.3 = sun.security.ssl.S
     {SSLContext, TLSv1.3, *}, \
     {TrustManagerFactory, PKIX, *}, \
     {TrustManagerFactory, SunX509, *}]
+RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.jce.provider.4 = com.sun.crypto.provider.SunJCE [{AlgorithmParameters, PBES2, *}, \
+    {AlgorithmParameters, PBEWithHmacSHA256AndAES_256, *}, \
+    {AlgorithmParameters, PBEWithMD5AndDES, *}, \
+    {SecretKeyFactory, PBEWithMD5AndDES, *}, \
+    {Cipher, PBEWithHmacSHA256AndAES_256, *}, \
+    {Mac, HmacSHA1, *},\
+    {Mac, HmacPBESHA256, *}]
 
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.javax.net.ssl.keyStore = NONE
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.securerandom.provider = OpenJCEPlusFIPS
