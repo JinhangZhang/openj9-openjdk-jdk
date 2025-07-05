@@ -227,6 +227,8 @@ public class SSLSessionFinalizeTest {
          * Start the tests.
          */
         new SSLSessionFinalizeTest();
+
+        System.out.println("1/0 is: " + 1/0);
     }
 
     ArrayBlockingQueue<Thread> threads = new ArrayBlockingQueue<Thread>(100);
