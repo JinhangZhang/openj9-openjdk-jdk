@@ -203,14 +203,14 @@ public class SSLSessionFinalizeTest {
         System.out.println("keyFilename path is: " + keyFilename);
         System.out.println("trustFilename path is: " + trustFilename);
 
-        // if (SecurityUtils.isFIPS()) {
-        //     keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
-        //     trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
-        // }
+        if (SecurityUtils.isFIPS()) {
+            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        }
 
-        // System.out.println("After extension.....");
-        // System.out.println("keyFilename path is: " + keyFilename);
-        // System.out.println("trustFilename path is: " + trustFilename);
+        System.out.println("After extension.....");
+        System.out.println("keyFilename path is: " + keyFilename);
+        System.out.println("trustFilename path is: " + trustFilename);
 
         System.setProperty("javax.net.ssl.keyStore", keyFilename);
         System.out.println("System.getProperty(javax.net.ssl.keyStore, value) is: " + System.getProperty("javax.net.ssl.keyStore", ""));
