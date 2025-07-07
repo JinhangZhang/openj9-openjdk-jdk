@@ -342,7 +342,6 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.jce.provider.3 = sun.security.ssl.S
     {TrustManagerFactory, PKIX, *}, \
     {TrustManagerFactory, SunX509, *}]
 
-RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.javax.net.ssl.keyStore = NONE
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.securerandom.provider = OpenJCEPlusFIPS
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3.securerandom.algorithm = SHA512DRBG
 
