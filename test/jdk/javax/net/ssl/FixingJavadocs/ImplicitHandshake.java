@@ -194,10 +194,10 @@ public class ImplicitHandshake {
             System.getProperty("test.src", "./") + "/" + pathToStores +
                 "/" + trustStoreFile;
 
-        if (SecurityUtils.isFIPS()) {
-            keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
-            trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
-        }
+        // if (SecurityUtils.isFIPS()) {
+        //     keyFilename = SecurityUtils.extensionP12(keyFilename, passwd);
+        //     trustFilename = SecurityUtils.extensionP12(trustFilename, passwd);
+        // }
 
         System.setProperty("javax.net.ssl.keyStore", keyFilename);
         System.setProperty("javax.net.ssl.keyStorePassword", passwd);
