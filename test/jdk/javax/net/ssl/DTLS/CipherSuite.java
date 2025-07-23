@@ -55,6 +55,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import jdk.test.lib.security.SecurityUtils;
+
 /**
  * Test common DTLS cipher suites.
  */
@@ -65,15 +67,24 @@ public class CipherSuite extends DTLSOverDatagram {
     private static boolean reenable;
 
     public static void main(String[] args) throws Exception {
-        if (args.length > 1 && "re-enable".equals(args[1])) {
-            Security.setProperty("jdk.tls.disabledAlgorithms", "");
+        if (args.length > 1 && "re-enable".equals(args[1])){
+            if(!SecurityUtils.isFIPS()) {
+                Security.setProperty("jdk.tls.disabledAlgorithms", "");
+            }
             reenable = true;
         }
 
         cipherSuite = args[0];
 
         CipherSuite testCase = new CipherSuite();
-        testCase.runTest(testCase);
+        try {
+            testCase.runTest(testCase);
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, cipherSuite, "DTLS");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
     }
 
     @Override
