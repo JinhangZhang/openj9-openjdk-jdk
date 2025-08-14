@@ -40,6 +40,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -126,6 +127,9 @@ public final class Security {
         private static final String EXTRA_SYS_PROP =
                 "java.security.properties";
 
+        private static final String EXTRA_SYS_PROP_LIST =
+                "java.security.propertieslist";
+
         private static Path currentPath;
 
         private static final Set<Path> activePaths = new HashSet<>();
@@ -134,7 +138,22 @@ public final class Security {
             // first load the master properties file to
             // determine the value of OVERRIDE_SEC_PROP
             loadMaster();
-            loadExtra();
+
+            // If java.security.propertieslist is present, it always takes precedence
+            // and java.security.properties will be ignored.
+            String listProp = java.security.AccessController.doPrivileged(
+                new java.security.PrivilegedAction<String>() {
+                    @Override
+                    public String run() {
+                        return System.getProperty(EXTRA_SYS_PROP_LIST);
+                    }
+                }
+            );
+            if (listProp != null && !listProp.isBlank()) {
+                loadExtraFromList(listProp);
+            } else {
+                loadExtra();
+            }
         }
 
         static boolean isInclude(String key) {
@@ -179,6 +198,63 @@ public final class Security {
                     }
                 }
             }
+        }
+
+        private static void loadExtraFromList(String list) {
+            String body = list.trim();
+            if (body.startsWith("[") && body.endsWith("]")) {
+                body = body.substring(1, body.length() - 1);
+            }
+
+            List<String> items = splitList(body);
+            for (String raw : items) {
+                String item = raw.trim();
+                if (item.isEmpty()) continue;
+
+                LoadingMode mode = LoadingMode.APPEND;
+                if (item.startsWith("=")) {
+                    mode = LoadingMode.OVERRIDE;
+                    item = item.substring(1).trim();
+                }
+
+                try {
+                    loadExtraHelper(item, mode);
+                } catch (Exception e) {
+                    if (sdebug != null) {
+                        sdebug.println("unable to load security properties from list item: " + raw);
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        private static List<String> splitList(String s) {
+            List<String> out = new ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            boolean inQuote = false;
+            char quote = 0;
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (inQuote) {
+                    if (c == quote) {
+                        inQuote = false;
+                    } else {
+                        cur.append(c);
+                    }
+                } else {
+                    if (c == '\'' || c == '\"') {
+                        inQuote = true;
+                        quote = c;
+                    } else if (c == ',') {
+                        out.add(cur.toString());
+                        cur.setLength(0);
+                    } else {
+                        cur.append(c);
+                    }
+                }
+            }
+            out.add(cur.toString());
+            return out;
         }
 
         private static void loadExtraHelper(String propFile, LoadingMode mode)
