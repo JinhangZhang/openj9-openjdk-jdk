@@ -141,16 +141,11 @@ public final class Security {
 
             // If java.security.propertieslist is present, it always takes precedence
             // and java.security.properties will be ignored.
-            if ("true".equalsIgnoreCase(props.getProperty(OVERRIDE_SEC_PROP))) {
-                String propFile = System.getProperty(EXTRA_SYS_PROP);
-                String propList = System.getProperty(EXTRA_SYS_PROP_LIST);
-                if (propList != null && !propList.isBlank()) {
-                    System.out.println(propList);
-                    loadExtraFromList(propList);
-                } else if (propFile != null && !propFile.isBlank()) {
-                    System.out.println(propFile);
-                    loadExtra(propFile);
-                }
+            String propList = System.getProperty(EXTRA_SYS_PROP_LIST);
+            if (propList != null && !propList.isBlank()) {
+                loadExtraFromList(propList);
+            } else
+                loadExtra();
             }
         }
 
@@ -176,38 +171,57 @@ public final class Security {
             }
         }
 
-        private static void loadExtra(String propFile) {
-            LoadingMode mode = LoadingMode.APPEND;
-            if (propFile.startsWith("=")) {
-                mode = LoadingMode.OVERRIDE;
-                propFile = propFile.substring(1);
-            }
-            try {
-                loadExtraHelper(propFile, mode);
-            } catch (Exception e) {
-                if (sdebug != null) {
-                    sdebug.println("unable to load security " +
-                            "properties from " + propFile);
-                    e.printStackTrace();
+        private static void loadExtra() {
+            if ("true".equalsIgnoreCase(props.getProperty(OVERRIDE_SEC_PROP))) {
+                String propFile = System.getProperty(EXTRA_SYS_PROP);
+                if (propFile != null) {
+                    LoadingMode mode = LoadingMode.APPEND;
+                    if (propFile.startsWith("=")) {
+                        mode = LoadingMode.OVERRIDE;
+                        propFile = propFile.substring(1);
+                    }
+                    try {
+                        loadExtraHelper(propFile, mode);
+                    } catch (Exception e) {
+                        if (sdebug != null) {
+                            sdebug.println("unable to load security " +
+                                    "properties from " + propFile);
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
         }
 
         private static void loadExtraFromList(String propList) {
-            String body = propList.trim();
-            List<String> files = splitList(body);
+            if ("true".equalsIgnoreCase(props.getProperty(OVERRIDE_SEC_PROP))) {
+                String body = propList.trim();
+                List<String> files = splitList(body);
 
-            if (sdebug != null) {
-                sdebug.println("java.security.propertieslist raw value: " + files);
                 for (String file : files) {
-                    sdebug.println("  parsed spec: '" + file + "'");
-                }
-            }
+                    String item = file.trim();
+                    if (item.isEmpty()) continue;
 
-            for (String file : files) {
-                String item = file.trim();
-                if (item.isEmpty()) continue;
-                loadExtra(item);
+                    // propertieslist does not support OVERRIDE mode
+                    if (item.startsWith("=")) {
+                        throw new IllegalArgumentException(
+                            "java.security.propertieslist does not support '=' prefix: " + file);
+                    }
+
+                    if (sdebug != null) {
+                        sdebug.println("java.security.propertieslist file value: " + file);
+                    }
+
+                    LoadingMode mode = LoadingMode.APPEND;
+                    try {
+                        loadExtraHelper(item, mode);
+                    } catch (Exception e) {
+                        if (sdebug != null) {
+                            sdebug.println("unable to load security properties from list item: " + raw);
+                            e.printStackTrace();
+                        }
+                    }
+                }
             }
         }
 
@@ -235,6 +249,9 @@ public final class Security {
                         cur.append(c);
                     }
                 }
+            }
+            if (inQuote) {
+                throw new IllegalArgumentException("wrong format"); 
             }
             out.add(cur.toString());
             return out;
