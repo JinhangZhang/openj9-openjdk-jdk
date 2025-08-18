@@ -144,7 +144,7 @@ public final class Security {
             String propList = System.getProperty(EXTRA_SYS_PROP_LIST);
             if (propList != null && !propList.isBlank()) {
                 loadExtraFromList(propList);
-            } else
+            } else {
                 loadExtra();
             }
         }
@@ -217,9 +217,10 @@ public final class Security {
                         loadExtraHelper(item, mode);
                     } catch (Exception e) {
                         if (sdebug != null) {
-                            sdebug.println("unable to load security properties from list item: " + raw);
+                            sdebug.println("unable to load security properties from list item: " + item);
                             e.printStackTrace();
                         }
+                        throw new RuntimeException("Failed to load security properties from list item: " + item, e);
                     }
                 }
             }
