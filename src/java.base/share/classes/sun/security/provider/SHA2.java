@@ -261,13 +261,274 @@ abstract class SHA2 extends DigestBase {
      * SHA-256 implementation class.
      */
     public static final class SHA256 extends SHA2 {
-        private static final int[] INITIAL_HASHES = {
-            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-        };
+
+        // === policy/thresholds (no FIPS logic) ===
+        private static final boolean gpuEnabled;
+        private static final int     gpuThresholdBytes;   // offload only when total >= this
+        private static final int     gpuMaxStageBytes;    // cap staging to avoid huge allocations
+
+        static {
+            boolean enabled = true;
+            try {
+                // manual kill-switch if you need to force CPU for A/B testing
+                String dis = System.getProperty("com.ibm.crypto.gpu.disable", "false");
+                if ("true".equalsIgnoreCase(dis)) enabled = false;
+            } catch (SecurityException ignored) {}
+            gpuEnabled = enabled;
+
+            int thr = 64 * 1024;             // default: 64 KiB
+            int cap = 256 * 1024 * 1024;     // default: 256 MiB
+            try {
+                thr = Integer.getInteger("com.ibm.crypto.gpu.threshold", thr);
+                cap = Integer.getInteger("com.ibm.crypto.gpu.maxStaging", cap);
+            } catch (SecurityException ignored) {}
+            gpuThresholdBytes = Math.max(0, thr);
+            gpuMaxStageBytes  = Math.max(64 * 1024, cap);
+        }
+
+        // === CUDA4J reflection handles ===
+        private static volatile boolean rtReady = false;
+        private static volatile boolean rtTried = false;
+
+        private static Class<?> devClz, modClz, kerClz, bufClz, gridClz, streamClz;
+        private static java.lang.reflect.Constructor<?> devCtor, modFromBytesCtor, kerFromModCtor, bufCtor, gridCtor;
+        private static java.lang.reflect.Method launchM, copyFromM, copyToM, closeM, syncM;
+
+        private static Object device;   // CudaDevice
+        private static Object module;   // CudaModule
+        private static Object kernel;   // CudaKernel (function "sha256_blocks")
+        private static Object stream;   // optional CudaStream (not strictly required)
+
+        // === per-instance staging while we consider GPU ===
+        private byte[] stageBuf;
+        private int    stageLen;
+        private boolean staging;
 
         public SHA256() {
-            super("SHA-256", 32, INITIAL_HASHES);
+            super("SHA-256", 64, 32); // blockLen=64, digestLen=32
+            staging = gpuEnabled;
+            if (staging) {
+                stageBuf = new byte[8192];
+                stageLen = 0;
+            }
+        }
+
+        @Override
+        protected void engineUpdate(byte input) {
+            if (staging) {
+                if (!appendStage(input)) {
+                    // exceeded staging cap: replay to CPU path and continue on CPU
+                    byte[] prev = drainStage();
+                    abandonStaging();
+                    super.engineUpdate(prev, 0, prev.length);
+                    super.engineUpdate(input);
+                }
+                return;
+            }
+            super.engineUpdate(input);
+        }
+
+        @Override
+        protected void engineUpdate(byte[] b, int off, int len) {
+            if (staging) {
+                if (!appendStage(b, off, len)) {
+                    byte[] prev = drainStage();
+                    abandonStaging();
+                    super.engineUpdate(prev, 0, prev.length);
+                    super.engineUpdate(b, off, len);
+                }
+                return;
+            }
+            super.engineUpdate(b, off, len);
+        }
+
+        @Override
+        void implDigest(byte[] out, int ofs) {
+            if (!staging) {
+                // already streaming through CPU => finish on CPU
+                super.implDigest(out, ofs);
+                return;
+            }
+
+            // GPU candidate: we buffered the entire message
+            byte[] data = drainStage();
+
+            if (data.length < gpuThresholdBytes || !ensureRuntime()) {
+                // too small or GPU not ready => replay into CPU path and finish
+                super.implReset();
+                super.engineUpdate(data, 0, data.length);
+                super.implDigest(out, ofs);
+                return;
+            }
+
+            try {
+                byte[] digest = gpuDigestWholeMessage(data);
+                System.arraycopy(digest, 0, out, ofs, 32);
+            } catch (Throwable t) {
+                // any issue => safe CPU fallback
+                super.implReset();
+                super.engineUpdate(data, 0, data.length);
+                super.implDigest(out, ofs);
+            } finally {
+                reset(); // clear staging state
+            }
+        }
+
+        @Override
+        void implReset() {
+            super.implReset();
+            if (stageBuf != null) java.util.Arrays.fill(stageBuf, (byte)0);
+            stageLen = 0;
+        }
+
+        // ---------- staging helpers ----------
+        private boolean appendStage(int b) {
+            if (stageLen >= gpuMaxStageBytes) return false;
+            ensureStage(1);
+            stageBuf[stageLen++] = (byte)(b & 0xFF);
+            return true;
+        }
+        private boolean appendStage(byte[] a, int off, int len) {
+            long need = (long)stageLen + len;
+            if (need > gpuMaxStageBytes) return false;
+            ensureStage(len);
+            System.arraycopy(a, off, stageBuf, stageLen, len);
+            stageLen += len;
+            return true;
+        }
+        private void ensureStage(int add) {
+            int need = stageLen + add;
+            if (need <= stageBuf.length) return;
+            int n = Math.max(stageBuf.length << 1, need);
+            stageBuf = java.util.Arrays.copyOf(stageBuf, n);
+        }
+        private byte[] drainStage() {
+            byte[] out = java.util.Arrays.copyOf(stageBuf, stageLen);
+            stageLen = 0;
+            return out;
+        }
+        private void abandonStaging() {
+            staging = false;
+            stageBuf = null;
+            stageLen = 0;
+        }
+
+        // ---------- CUDA4J runtime ----------
+        private static boolean ensureRuntime() {
+            if (rtReady) return true;
+            if (rtTried) return false;
+            synchronized (SHA256.class) {
+                if (rtReady || rtTried) return rtReady;
+                rtTried = true;
+                try {
+                    devClz  = Class.forName("com.ibm.cuda.CudaDevice");
+                    modClz  = Class.forName("com.ibm.cuda.CudaModule");
+                    kerClz  = Class.forName("com.ibm.cuda.CudaKernel");
+                    bufClz  = Class.forName("com.ibm.cuda.CudaBuffer");
+                    gridClz = Class.forName("com.ibm.cuda.CudaGrid");
+                    // stream is optional; keep it if available
+                    try { streamClz = Class.forName("com.ibm.cuda.CudaStream"); } catch (Throwable ignore) {}
+
+                    devCtor           = devClz.getConstructor(int.class);
+                    // most CUDA4J builds have a module(byte[]) ctor; use it to avoid path-dependent I/O
+                    modFromBytesCtor  = modClz.getConstructor(devClz, byte[].class);
+                    kerFromModCtor    = kerClz.getConstructor(modClz, String.class);
+                    bufCtor           = bufClz.getConstructor(devClz, long.class);
+                    // CudaGrid(gridDimX, blockDimX) ctor is common; y/z default to 1
+                    try {
+                        gridCtor = gridClz.getConstructor(int.class, int.class);
+                    } catch (NoSuchMethodException e) {
+                        // fallback to full 6-arg ctor if needed
+                        gridCtor = gridClz.getConstructor(int.class,int.class,int.class,int.class,int.class,int.class);
+                    }
+
+                    // methods
+                    launchM   = kerClz.getMethod("launch", gridClz, Object[].class);
+                    copyFromM = bufClz.getMethod("copyFrom", byte[].class, int.class, int.class);
+                    copyToM   = bufClz.getMethod("copyTo",   byte[].class, int.class, int.class);
+                    closeM    = bufClz.getMethod("close");
+                    if (streamClz != null) {
+                        syncM = streamClz.getMethod("synchronize");
+                    }
+
+                    // create device
+                    device = devCtor.newInstance(0);
+
+                    // load PTX -> module
+                    String ptxPath = System.getProperty("com.ibm.crypto.gpu.sha256.ptx", "");
+                    byte[] ptxBytes;
+                    if (ptxPath == null || ptxPath.isEmpty()) {
+                        String home = System.getProperty("java.home");
+                        java.nio.file.Path p = java.nio.file.Paths.get(home, "lib", "security", "cuda", "sha256.ptx");
+                        ptxBytes = java.nio.file.Files.readAllBytes(p);
+                    } else {
+                        ptxBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(ptxPath));
+                    }
+                    module = modFromBytesCtor.newInstance(device, ptxBytes);
+
+                    // fetch kernel function from module
+                    kernel = kerFromModCtor.newInstance(module, "sha256_blocks");
+
+                    rtReady = true;
+                } catch (Throwable t) {
+                    rtReady = false; // stay CPU
+                }
+                return rtReady;
+            }
+        }
+
+        private static byte[] gpuDigestWholeMessage(byte[] data) throws Exception {
+            // host-side padding (FIPS 180-4)
+            byte[] padded = padSHA256(data);
+            int total = padded.length;
+            int nBlocks = total / 64;
+
+            // allocate device buffers (input bytes, 32-byte digest)
+            Object inBuf  = bufCtor.newInstance(device, Long.valueOf(total));
+            Object outBuf = bufCtor.newInstance(device, Long.valueOf(32));
+
+            try {
+                // H->D copy
+                copyFromM.invoke(inBuf, padded, 0, total);
+
+                // grid config: one thread is fine (kernel loops over blocks)
+                Object grid;
+                try {
+                    grid = gridCtor.newInstance(Integer.valueOf(1), Integer.valueOf(1));
+                } catch (IllegalArgumentException iae) {
+                    // full ctor fallback: gridX,gridY,gridZ, blockX,blockY,blockZ
+                    grid = gridCtor.newInstance(1,1,1, 1,1,1);
+                }
+
+                // launch: args = (inBuf, nBlocks, outBuf)
+                launchM.invoke(kernel, grid, new Object[]{ inBuf, Integer.valueOf(nBlocks), outBuf });
+
+                // D->H copy
+                byte[] out = new byte[32];
+                copyToM.invoke(outBuf, out, 0, 32);
+                return out;
+
+            } finally {
+                try { closeM.invoke(inBuf);  } catch (Throwable ignore) {}
+                try { closeM.invoke(outBuf); } catch (Throwable ignore) {}
+            }
+        }
+
+        private static byte[] padSHA256(byte[] data) {
+            long bitLen = ((long) data.length) * 8L;
+            int n = data.length + 1 + 8;  // +0x80 + length
+            int rem = n % 64;
+            int padZero = (rem <= 56) ? (56 - rem) : (56 + (64 - rem));
+            int total = data.length + 1 + padZero + 8;
+
+            byte[] out = new byte[total];
+            System.arraycopy(data, 0, out, 0, data.length);
+            out[data.length] = (byte)0x80;
+            // zeros already 0
+            for (int i = 0; i < 8; i++) {
+                out[total - 1 - i] = (byte)((bitLen >>> (8 * i)) & 0xFF);
+            }
+            return out;
         }
     }
 }
