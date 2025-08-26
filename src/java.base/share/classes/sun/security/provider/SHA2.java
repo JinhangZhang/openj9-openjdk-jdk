@@ -262,22 +262,28 @@ abstract class SHA2 extends DigestBase {
      */
     public static final class SHA256 extends SHA2 {
 
-        // === policy/thresholds (no FIPS logic) ===
+        // --- IV (already used by the CPU path) ---
+        private static final int[] INITIAL_HASHES = {
+            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+        };
+
+        // --- Offload policy knobs ---
         private static final boolean gpuEnabled;
-        private static final int     gpuThresholdBytes;   // offload only when total >= this
-        private static final int     gpuMaxStageBytes;    // cap staging to avoid huge allocations
+        private static final int gpuThresholdBytes;   // offload only if total >= this
+        private static final int gpuMaxStageBytes;    // cap total bytes we buffer
 
         static {
-            boolean enabled = true;
+            boolean en = true;
             try {
-                // manual kill-switch if you need to force CPU for A/B testing
-                String dis = System.getProperty("com.ibm.crypto.gpu.disable", "false");
-                if ("true".equalsIgnoreCase(dis)) enabled = false;
+                if ("true".equalsIgnoreCase(System.getProperty("com.ibm.crypto.gpu.disable", "false"))) {
+                    en = false;
+                }
             } catch (SecurityException ignored) {}
-            gpuEnabled = enabled;
+            gpuEnabled = en;
 
-            int thr = 64 * 1024;             // default: 64 KiB
-            int cap = 256 * 1024 * 1024;     // default: 256 MiB
+            int thr = 64 * 1024;            // 64 KiB default
+            int cap = 256 * 1024 * 1024;    // 256 MiB default
             try {
                 thr = Integer.getInteger("com.ibm.crypto.gpu.threshold", thr);
                 cap = Integer.getInteger("com.ibm.crypto.gpu.maxStaging", cap);
@@ -286,249 +292,221 @@ abstract class SHA2 extends DigestBase {
             gpuMaxStageBytes  = Math.max(64 * 1024, cap);
         }
 
-        // === CUDA4J reflection handles ===
-        private static volatile boolean rtReady = false;
-        private static volatile boolean rtTried = false;
-
-        private static Class<?> devClz, modClz, kerClz, bufClz, gridClz, streamClz;
-        private static java.lang.reflect.Constructor<?> devCtor, modFromBytesCtor, kerFromModCtor, bufCtor, gridCtor;
-        private static java.lang.reflect.Method launchM, copyFromM, copyToM, closeM, syncM;
-
+        // --- CUDA4J reflective handles (Device → Module → Kernel) ---
+        private static volatile boolean rtReady = false, rtTried = false;
+        private static Class<?> devClz, modClz, kerClz, bufClz, gridClz;
+        private static java.lang.reflect.Constructor<?> devCtor, modCtor, kerCtor, bufCtor, grid2Ctor, grid6Ctor;
+        private static java.lang.reflect.Method launchM, copyFromM, copyToM, closeM;
         private static Object device;   // CudaDevice
         private static Object module;   // CudaModule
-        private static Object kernel;   // CudaKernel (function "sha256_blocks")
-        private static Object stream;   // optional CudaStream (not strictly required)
+        private static Object kernel;   // CudaKernel ("sha256_blocks")
 
-        // === per-instance staging while we consider GPU ===
-        private byte[] stageBuf;
-        private int    stageLen;
-        private boolean staging;
+        // --- Staging for GPU: store full 64-byte blocks seen by implCompress ---
+        private byte[] staged;       // grows as needed
+        private int    stagedLen;    // multiple of 64 while staging
+        private boolean staging;     // true until we replay to CPU or finish on GPU
 
         public SHA256() {
-            super("SHA-256", 64, 32); // blockLen=64, digestLen=32
+            super("SHA-256", 32, INITIAL_HASHES); // correct ctor (32-byte digest, pass IV)  :contentReference[oaicite:2]{index=2}
             staging = gpuEnabled;
             if (staging) {
-                stageBuf = new byte[8192];
-                stageLen = 0;
+                staged = new byte[64 * 16]; // start small; grows as needed
+                stagedLen = 0;
             }
         }
 
-        @Override
-        protected void engineUpdate(byte input) {
-            if (staging) {
-                if (!appendStage(input)) {
-                    // exceeded staging cap: replay to CPU path and continue on CPU
-                    byte[] prev = drainStage();
-                    abandonStaging();
-                    super.engineUpdate(prev, 0, prev.length);
-                    super.engineUpdate(input);
-                }
-                return;
-            }
-            super.engineUpdate(input);
-        }
+        // -------- DigestBase hooks we are allowed to override --------
 
         @Override
-        protected void engineUpdate(byte[] b, int off, int len) {
-            if (staging) {
-                if (!appendStage(b, off, len)) {
-                    byte[] prev = drainStage();
-                    abandonStaging();
-                    super.engineUpdate(prev, 0, prev.length);
-                    super.engineUpdate(b, off, len);
-                }
+        void implCompress(byte[] b, int ofs) {
+            if (!staging) {
+                // Normal CPU fast path provided by SHA2 (super)
+                super.implCompress(b, ofs);
                 return;
             }
-            super.engineUpdate(b, off, len);
+            // While staging, we just stash the 64-byte block instead of mutating state.
+            if ((long) stagedLen + 64 > gpuMaxStageBytes) {
+                // Cap exceeded: replay staged blocks to CPU and process this block on CPU too.
+                replayStagedToCpu();
+                super.implCompress(b, ofs);
+                return;
+            }
+            ensureCap(stagedLen + 64);
+            System.arraycopy(b, ofs, staged, stagedLen, 64);
+            stagedLen += 64;
+            // Note: DigestBase.bytesProcessed was already advanced by engineUpdate(); we do not touch it here.
         }
 
         @Override
         void implDigest(byte[] out, int ofs) {
             if (!staging) {
-                // already streaming through CPU => finish on CPU
+                // We already switched to CPU mode earlier.
                 super.implDigest(out, ofs);
                 return;
             }
 
-            // GPU candidate: we buffered the entire message
-            byte[] data = drainStage();
+            // Build the full padded message: [staged full blocks] + [buffer[0..idx)] + [padding + length]
+            final int idx = (int) (bytesProcessed & 0x3f);           // same as DigestBase uses
+            final long bitLen = bytesProcessed << 3;
+            final int padLen = (idx < 56) ? (56 - idx) : (120 - idx);
+            final int total = stagedLen + idx + padLen + 8;
 
-            if (data.length < gpuThresholdBytes || !ensureRuntime()) {
-                // too small or GPU not ready => replay into CPU path and finish
-                super.implReset();
-                super.engineUpdate(data, 0, data.length);
+            if (total < gpuThresholdBytes || !ensureRuntime()) {
+                // Too small or GPU not available: replay staged CPU blocks and finish via super
+                replayStagedToCpu();
                 super.implDigest(out, ofs);
                 return;
             }
 
+            // Materialize padded message contiguously
+            byte[] padded = new byte[total];
+            int p = 0;
+            if (stagedLen != 0) {
+                System.arraycopy(staged, 0, padded, 0, stagedLen); p += stagedLen;
+            }
+            // 'buffer' holds the trailing <64 bytes from DigestBase; visible in this package
+            if (idx != 0) {
+                System.arraycopy(buffer, 0, padded, p, idx); p += idx;
+            }
+            // 0x80 + zeros
+            padded[p++] = (byte)0x80;
+            for (int i = 1; i < padLen; i++) padded[p++] = 0;
+            // 64-bit big-endian length
+            padded[p++] = (byte)((bitLen >>> 56) & 0xff);
+            padded[p++] = (byte)((bitLen >>> 48) & 0xff);
+            padded[p++] = (byte)((bitLen >>> 40) & 0xff);
+            padded[p++] = (byte)((bitLen >>> 32) & 0xff);
+            padded[p++] = (byte)((bitLen >>> 24) & 0xff);
+            padded[p++] = (byte)((bitLen >>> 16) & 0xff);
+            padded[p++] = (byte)((bitLen >>>  8) & 0xff);
+            padded[p++] = (byte)((bitLen >>>  0) & 0xff);
+
+            // Launch GPU over all 64B blocks in 'padded'
             try {
-                byte[] digest = gpuDigestWholeMessage(data);
+                byte[] digest = gpuDigestWholeMessage(padded);
                 System.arraycopy(digest, 0, out, ofs, 32);
-            } catch (Throwable t) {
-                // any issue => safe CPU fallback
-                super.implReset();
-                super.engineUpdate(data, 0, data.length);
+            } catch (Throwable gpuFail) {
+                // Fallback: CPU replay + finish
+                replayStagedToCpu();
                 super.implDigest(out, ofs);
             } finally {
-                reset(); // clear staging state
+                // clear staging
+                staging = false;
+                staged = null;
+                stagedLen = 0;
             }
         }
 
         @Override
         void implReset() {
-            super.implReset();
-            if (stageBuf != null) java.util.Arrays.fill(stageBuf, (byte)0);
-            stageLen = 0;
+            super.implReset(); // resets CPU state and W[]
+            if (staged != null) java.util.Arrays.fill(staged, 0, stagedLen, (byte)0);
+            stagedLen = 0;
+            staging = gpuEnabled;
+            if (staging && staged == null) staged = new byte[64 * 16];
         }
 
-        // ---------- staging helpers ----------
-        private boolean appendStage(int b) {
-            if (stageLen >= gpuMaxStageBytes) return false;
-            ensureStage(1);
-            stageBuf[stageLen++] = (byte)(b & 0xFF);
-            return true;
-        }
-        private boolean appendStage(byte[] a, int off, int len) {
-            long need = (long)stageLen + len;
-            if (need > gpuMaxStageBytes) return false;
-            ensureStage(len);
-            System.arraycopy(a, off, stageBuf, stageLen, len);
-            stageLen += len;
-            return true;
-        }
-        private void ensureStage(int add) {
-            int need = stageLen + add;
-            if (need <= stageBuf.length) return;
-            int n = Math.max(stageBuf.length << 1, need);
-            stageBuf = java.util.Arrays.copyOf(stageBuf, n);
-        }
-        private byte[] drainStage() {
-            byte[] out = java.util.Arrays.copyOf(stageBuf, stageLen);
-            stageLen = 0;
-            return out;
-        }
-        private void abandonStaging() {
+        // -------- helper: replay buffered blocks into the CPU compressor --------
+        private void replayStagedToCpu() {
+            if (!staging || stagedLen == 0) { staging = false; return; }
+            // Feed each 64-byte chunk back into the SHA-256 compressor
+            for (int off = 0; off < stagedLen; off += 64) {
+                super.implCompress(staged, off);
+            }
+            // Drop staging
             staging = false;
-            stageBuf = null;
-            stageLen = 0;
+            java.util.Arrays.fill(staged, 0, stagedLen, (byte)0);
+            stagedLen = 0;
+            staged = null;
         }
 
-        // ---------- CUDA4J runtime ----------
+        private void ensureCap(int need) {
+            if (staged.length >= need) return;
+            int n = Math.max(staged.length << 1, need);
+            byte[] nb = new byte[n];
+            System.arraycopy(staged, 0, nb, 0, stagedLen);
+            staged = nb;
+        }
+
+        // -------- CUDA4J integration (reflective) --------
+
         private static boolean ensureRuntime() {
+            if (!gpuEnabled) return false;
             if (rtReady) return true;
             if (rtTried) return false;
             synchronized (SHA256.class) {
                 if (rtReady || rtTried) return rtReady;
                 rtTried = true;
                 try {
-                    devClz  = Class.forName("com.ibm.cuda.CudaDevice");
-                    modClz  = Class.forName("com.ibm.cuda.CudaModule");
-                    kerClz  = Class.forName("com.ibm.cuda.CudaKernel");
-                    bufClz  = Class.forName("com.ibm.cuda.CudaBuffer");
+                    devClz = Class.forName("com.ibm.cuda.CudaDevice");
+                    modClz = Class.forName("com.ibm.cuda.CudaModule");
+                    kerClz = Class.forName("com.ibm.cuda.CudaKernel");
+                    bufClz = Class.forName("com.ibm.cuda.CudaBuffer");
                     gridClz = Class.forName("com.ibm.cuda.CudaGrid");
-                    // stream is optional; keep it if available
-                    try { streamClz = Class.forName("com.ibm.cuda.CudaStream"); } catch (Throwable ignore) {}
 
-                    devCtor           = devClz.getConstructor(int.class);
-                    // most CUDA4J builds have a module(byte[]) ctor; use it to avoid path-dependent I/O
-                    modFromBytesCtor  = modClz.getConstructor(devClz, byte[].class);
-                    kerFromModCtor    = kerClz.getConstructor(modClz, String.class);
-                    bufCtor           = bufClz.getConstructor(devClz, long.class);
-                    // CudaGrid(gridDimX, blockDimX) ctor is common; y/z default to 1
+                    devCtor = devClz.getConstructor(int.class);
+                    // Prefer module(byte[]) to avoid path-dependent I/O in native
+                    modCtor = modClz.getConstructor(devClz, byte[].class);
+                    kerCtor = kerClz.getConstructor(modClz, String.class);
+                    bufCtor = bufClz.getConstructor(devClz, long.class);
                     try {
-                        gridCtor = gridClz.getConstructor(int.class, int.class);
+                        grid2Ctor = gridClz.getConstructor(int.class, int.class); // gridX, blockX
                     } catch (NoSuchMethodException e) {
-                        // fallback to full 6-arg ctor if needed
-                        gridCtor = gridClz.getConstructor(int.class,int.class,int.class,int.class,int.class,int.class);
+                        grid6Ctor = gridClz.getConstructor(int.class,int.class,int.class,int.class,int.class,int.class);
                     }
 
-                    // methods
                     launchM   = kerClz.getMethod("launch", gridClz, Object[].class);
                     copyFromM = bufClz.getMethod("copyFrom", byte[].class, int.class, int.class);
                     copyToM   = bufClz.getMethod("copyTo",   byte[].class, int.class, int.class);
                     closeM    = bufClz.getMethod("close");
-                    if (streamClz != null) {
-                        syncM = streamClz.getMethod("synchronize");
-                    }
 
-                    // create device
                     device = devCtor.newInstance(0);
 
-                    // load PTX -> module
+                    // Load PTX bytes
                     String ptxPath = System.getProperty("com.ibm.crypto.gpu.sha256.ptx", "");
-                    byte[] ptxBytes;
+                    byte[] ptx;
                     if (ptxPath == null || ptxPath.isEmpty()) {
                         String home = System.getProperty("java.home");
                         java.nio.file.Path p = java.nio.file.Paths.get(home, "lib", "security", "cuda", "sha256.ptx");
-                        ptxBytes = java.nio.file.Files.readAllBytes(p);
+                        ptx = java.nio.file.Files.readAllBytes(p);
                     } else {
-                        ptxBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(ptxPath));
+                        ptx = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(ptxPath));
                     }
-                    module = modFromBytesCtor.newInstance(device, ptxBytes);
 
-                    // fetch kernel function from module
-                    kernel = kerFromModCtor.newInstance(module, "sha256_blocks");
+                    module = modCtor.newInstance(device, ptx);
+                    kernel = kerCtor.newInstance(module, "sha256_blocks");
 
                     rtReady = true;
                 } catch (Throwable t) {
-                    rtReady = false; // stay CPU
+                    rtReady = false;
                 }
                 return rtReady;
             }
         }
 
-        private static byte[] gpuDigestWholeMessage(byte[] data) throws Exception {
-            // host-side padding (FIPS 180-4)
-            byte[] padded = padSHA256(data);
+        private static byte[] gpuDigestWholeMessage(byte[] padded) throws Exception {
             int total = padded.length;
             int nBlocks = total / 64;
 
-            // allocate device buffers (input bytes, 32-byte digest)
             Object inBuf  = bufCtor.newInstance(device, Long.valueOf(total));
             Object outBuf = bufCtor.newInstance(device, Long.valueOf(32));
-
             try {
-                // H->D copy
                 copyFromM.invoke(inBuf, padded, 0, total);
 
-                // grid config: one thread is fine (kernel loops over blocks)
-                Object grid;
-                try {
-                    grid = gridCtor.newInstance(Integer.valueOf(1), Integer.valueOf(1));
-                } catch (IllegalArgumentException iae) {
-                    // full ctor fallback: gridX,gridY,gridZ, blockX,blockY,blockZ
-                    grid = gridCtor.newInstance(1,1,1, 1,1,1);
-                }
+                Object grid = (grid2Ctor != null)
+                    ? grid2Ctor.newInstance(Integer.valueOf(1), Integer.valueOf(1))
+                    : grid6Ctor.newInstance(1,1,1, 1,1,1);
 
-                // launch: args = (inBuf, nBlocks, outBuf)
+                // launch(grid, args...) where args are (inBuf, nBlocks, outBuf)
                 launchM.invoke(kernel, grid, new Object[]{ inBuf, Integer.valueOf(nBlocks), outBuf });
 
-                // D->H copy
                 byte[] out = new byte[32];
                 copyToM.invoke(outBuf, out, 0, 32);
                 return out;
-
             } finally {
-                try { closeM.invoke(inBuf);  } catch (Throwable ignore) {}
-                try { closeM.invoke(outBuf); } catch (Throwable ignore) {}
+                try { closeM.invoke(inBuf); }  catch (Throwable ignored) {}
+                try { closeM.invoke(outBuf); } catch (Throwable ignored) {}
             }
-        }
-
-        private static byte[] padSHA256(byte[] data) {
-            long bitLen = ((long) data.length) * 8L;
-            int n = data.length + 1 + 8;  // +0x80 + length
-            int rem = n % 64;
-            int padZero = (rem <= 56) ? (56 - rem) : (56 + (64 - rem));
-            int total = data.length + 1 + padZero + 8;
-
-            byte[] out = new byte[total];
-            System.arraycopy(data, 0, out, 0, data.length);
-            out[data.length] = (byte)0x80;
-            // zeros already 0
-            for (int i = 0; i < 8; i++) {
-                out[total - 1 - i] = (byte)((bitLen >>> (8 * i)) & 0xFF);
-            }
-            return out;
         }
     }
 }
