@@ -229,7 +229,6 @@ public final class SecurityUtils {
 
     static {
         FIPS_TLS_PROTOCOLS.add("DTLSv1.2");
-        FIPS_TLS_PROTOCOLS.add("DTLSv1.3");
         FIPS_TLS_PROTOCOLS.add("TLSv1.2");
         FIPS_TLS_PROTOCOLS.add("TLSv1.3");
 
