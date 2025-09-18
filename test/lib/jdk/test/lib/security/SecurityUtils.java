@@ -230,11 +230,13 @@ public final class SecurityUtils {
     static {
         FIPS_TLS_PROTOCOLS.add("DTLS");
         FIPS_TLS_PROTOCOLS.add("DTLSv1.2");
+        FIPS_TLS_PROTOCOLS.add("DTLSv1.3");
+        FIPS_TLS_PROTOCOLS.add("TLS");
         FIPS_TLS_PROTOCOLS.add("TLSv1.2");
         FIPS_TLS_PROTOCOLS.add("TLSv1.3");
 
-        FIPS_TLS_CIPHERSUITES.put("TLS_AES_128_GCM_SHA256", Arrays.asList("TLSv1.3"));
-        FIPS_TLS_CIPHERSUITES.put("TLS_AES_256_GCM_SHA384", Arrays.asList("TLSv1.3"));
+        FIPS_TLS_CIPHERSUITES.put("TLS_AES_128_GCM_SHA256", Arrays.asList("TLSv1.3", "DTLSv1.3"));
+        FIPS_TLS_CIPHERSUITES.put("TLS_AES_256_GCM_SHA384", Arrays.asList("TLSv1.3", "DTLSv1.3"));
         FIPS_TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", Arrays.asList("TLSv1.2", "DTLSv1.2"));
         FIPS_TLS_CIPHERSUITES.put("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", Arrays.asList("TLSv1.2", "DTLSv1.2"));
         FIPS_TLS_CIPHERSUITES.put("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", Arrays.asList("TLSv1.2", "DTLSv1.2"));
