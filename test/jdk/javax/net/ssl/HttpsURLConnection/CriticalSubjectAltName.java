@@ -53,6 +53,8 @@ import javax.net.ssl.*;
 import java.security.Security;
 import java.security.cert.Certificate;
 
+import jdk.test.lib.security.SecurityUtils;
+
 public class CriticalSubjectAltName implements HostnameVerifier {
     /*
      * =============================================================
@@ -160,10 +162,12 @@ public class CriticalSubjectAltName implements HostnameVerifier {
 
     public static void main(String[] args) throws Exception {
         // MD5 is used in this test case, don't disable MD5 algorithm.
-        Security.setProperty("jdk.certpath.disabledAlgorithms",
+        if (!(SecurityUtils.isFIPS())) {
+            Security.setProperty("jdk.certpath.disabledAlgorithms",
                 "MD2, RSA keySize < 1024");
-        Security.setProperty("jdk.tls.disabledAlgorithms",
+            Security.setProperty("jdk.tls.disabledAlgorithms",
                 "SSLv3, RC4, DH keySize < 768");
+        }
 
         String keyFilename =
             System.getProperty("test.src", "./") + "/" + pathToStores +

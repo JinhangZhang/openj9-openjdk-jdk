@@ -51,7 +51,7 @@ public class DTLSWontNegotiateV10 {
     private static final int READ_TIMEOUT_SECS = Integer.getInteger("readtimeout", 30);
 
     public static void main(String[] args) throws Exception {
-        if (args[0].equals(DTLSV_1_0)) {
+        if (args[0].equals(DTLSV_1_0) && !SecurityUtils.isFIPS()) {
             SecurityUtils.removeFromDisabledTlsAlgs(DTLSV_1_0);
         }
 

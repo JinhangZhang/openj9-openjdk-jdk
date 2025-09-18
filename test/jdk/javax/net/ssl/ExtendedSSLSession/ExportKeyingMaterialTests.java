@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.Random;
 
 import static jdk.test.lib.Asserts.*;
+import jdk.test.lib.security.SecurityUtils;
 
 /**
  * A SSLEngine usage example which simplifies the presentation
@@ -64,6 +65,7 @@ public class ExportKeyingMaterialTests extends SSLEngineTemplate {
 
     private String protocol;
     private String ciphersuite;
+    private boolean ISFIPS = SecurityUtils.isFIPS();
 
     protected ExportKeyingMaterialTests(String protocol, String ciphersuite)
             throws Exception {
@@ -92,15 +94,21 @@ public class ExportKeyingMaterialTests extends SSLEngineTemplate {
         // Get/set parameters if needed
         //
         SSLParameters paramsServer = serverEngine.getSSLParameters();
-        paramsServer.setProtocols(new String[] {
-                "TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3"
-        });
+        String[] TLS13_protocols;
+        if (ISFIPS) {
+            TLS13_protocols = SecurityUtils.FIPS_TLS_PROTOCOLS.toArray(new String[0]);
+        } else {
+            TLS13_protocols = new String[] {"TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3"};
+        }
+        paramsServer.setProtocols(TLS13_protocols);
         serverEngine.setSSLParameters(paramsServer);
     }
 
     public static void main(String[] args) throws Exception {
         // Turn off the disabled Algorithms so we can also test SSLv3/TLSv1/etc.
-        Security.setProperty("jdk.tls.disabledAlgorithms", "");
+        if (!(SecurityUtils.isFIPS())) {
+                Security.setProperty("jdk.tls.disabledAlgorithms", "");
+        }
 
         if ((args.length > 0) && (args[0].equals("PKCS11"))) {
             Security.insertProviderAt(

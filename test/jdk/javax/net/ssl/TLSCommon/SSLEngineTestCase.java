@@ -813,8 +813,15 @@ abstract public class SSLEngineTestCase {
                 java.security.Security.setProperty(
                     "jdk.certpath.disabledAlgorithms", "");
             }
-            KeyStore ks = KeyStore.getInstance("JKS");
-            KeyStore ts = KeyStore.getInstance("JKS");
+            KeyStore ks;
+            KeyStore ts;
+            if (ISFIPS) {
+                ks = KeyStore.getInstance("PKCS12");
+                ts = KeyStore.getInstance("PKCS12");
+            } else {
+                ks = KeyStore.getInstance("JKS");
+                ts = KeyStore.getInstance("JKS");
+            }
             char[] passphrase = PASSWD.toCharArray();
             try (FileInputStream keyFileStream =
                     new FileInputStream(KEY_FILE_NAME)) {

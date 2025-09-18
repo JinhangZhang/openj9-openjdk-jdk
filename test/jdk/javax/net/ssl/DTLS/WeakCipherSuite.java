@@ -62,7 +62,14 @@ public class WeakCipherSuite extends DTLSOverDatagram {
         cipherSuite = args[0];
 
         WeakCipherSuite testCase = new WeakCipherSuite();
-        testCase.runTest(testCase);
+        try {
+            testCase.runTest(testCase);
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, cipherSuite, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
     }
 
     @Override
