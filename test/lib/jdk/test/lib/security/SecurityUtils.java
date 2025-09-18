@@ -228,10 +228,8 @@ public final class SecurityUtils {
     public static final Map<String, List<String>> FIPS_TLS_CIPHERSUITES = new HashMap<>();
 
     static {
-        FIPS_TLS_PROTOCOLS.add("DTLS");
         FIPS_TLS_PROTOCOLS.add("DTLSv1.2");
         FIPS_TLS_PROTOCOLS.add("DTLSv1.3");
-        FIPS_TLS_PROTOCOLS.add("TLS");
         FIPS_TLS_PROTOCOLS.add("TLSv1.2");
         FIPS_TLS_PROTOCOLS.add("TLSv1.3");
 
