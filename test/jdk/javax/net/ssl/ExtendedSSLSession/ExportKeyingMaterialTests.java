@@ -123,16 +123,38 @@ public class ExportKeyingMaterialTests extends SSLEngineTemplate {
                 "TLSv1.3", "TLS_AES_128_GCM_SHA256").runTest();
         new ExportKeyingMaterialTests(
                 "TLSv1.3", "TLS_AES_256_GCM_SHA384").runTest();
-        new ExportKeyingMaterialTests(
+        try {
+            new ExportKeyingMaterialTests(
                 "TLSv1.3", "TLS_CHACHA20_POLY1305_SHA256").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_CHACHA20_POLY1305_SHA256", "TLSv1.3");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
 
         // Try the various GCM suites for TLSv1.2
         new ExportKeyingMaterialTests(
                 "TLSv1.2", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384").runTest();
-        new ExportKeyingMaterialTests(
+        try {
+            new ExportKeyingMaterialTests(
                 "TLSv1.2", "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256").runTest();
-        new ExportKeyingMaterialTests(
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256", "TLSv1.2");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        try {    
+            new ExportKeyingMaterialTests(
                 "TLSv1.2", "TLS_RSA_WITH_AES_256_GCM_SHA384").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_RSA_WITH_AES_256_GCM_SHA384", "TLSv1.2");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
 
         // Try one TLSv1.2/CBC suite just for grins, the triggers are the same.
         new ExportKeyingMaterialTests(
@@ -140,19 +162,66 @@ public class ExportKeyingMaterialTests extends SSLEngineTemplate {
 
         // Use appropriate protocol/ciphersuite combos.  Some of the 1.2
         // suites (e.g. GCM) can't be used in earlier TLS versions.
-        new ExportKeyingMaterialTests(
-                "TLSv1.1", "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA").runTest();
-        new ExportKeyingMaterialTests(
-                "TLSv1.1", "TLS_DHE_RSA_WITH_AES_256_CBC_SHA").runTest();
-        new ExportKeyingMaterialTests(
-                "TLSv1.1", "TLS_RSA_WITH_AES_256_CBC_SHA").runTest();
 
-        new ExportKeyingMaterialTests(
+        try {
+            new ExportKeyingMaterialTests(
+                "TLSv1.1", "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        try {
+            new ExportKeyingMaterialTests(
+                "TLSv1.1", "TLS_DHE_RSA_WITH_AES_256_CBC_SHA").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_DHE_RSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        try {
+            new ExportKeyingMaterialTests(
+                "TLSv1.1", "TLS_RSA_WITH_AES_256_CBC_SHA").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_RSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+        
+        try {
+            new ExportKeyingMaterialTests(
                 "TLSv1", "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA").runTest();
-        new ExportKeyingMaterialTests(
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+        
+        try {
+            new ExportKeyingMaterialTests(
                 "TLSv1", "TLS_DHE_RSA_WITH_AES_256_CBC_SHA").runTest();
-        new ExportKeyingMaterialTests(
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_DHE_RSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        try {
+            new ExportKeyingMaterialTests(
                 "TLSv1", "TLS_RSA_WITH_AES_256_CBC_SHA").runTest();
+        } catch (javax.net.ssl.SSLHandshakeException sslhe) {
+            SecurityUtils.FipsSSLHandshakeException(sslhe, "TLS_RSA_WITH_AES_256_CBC_SHA", "TLSv1.1");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
 
         try {
             new ExportKeyingMaterialTests(
