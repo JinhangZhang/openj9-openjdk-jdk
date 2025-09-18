@@ -41,6 +41,8 @@
 import javax.net.ssl.SSLEngine;
 import java.security.Security;
 
+import jdk.test.lib.security.SecurityUtils;
+
 /**
  * Test common DTLS weak cipher suites.
  */
@@ -52,8 +54,10 @@ public class WeakCipherSuite extends DTLSOverDatagram {
     public static void main(String[] args) throws Exception {
         // reset security properties to make sure that the algorithms
         // and keys used in this test are not disabled.
-        Security.setProperty("jdk.tls.disabledAlgorithms", "");
-        Security.setProperty("jdk.certpath.disabledAlgorithms", "");
+        if (!(SecurityUtils.isFIPS())) {
+            Security.setProperty("jdk.tls.disabledAlgorithms", "");
+            Security.setProperty("jdk.certpath.disabledAlgorithms", "");
+        }
 
         cipherSuite = args[0];
 

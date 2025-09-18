@@ -6,9 +6,11 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.desc.name = Test-TLS O
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.desc.default = false
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.extends = RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3
 
-RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.jce.provider.2 = sun.security.provider.Sun [+ \
-    {KeyStore, JKS, *}, \
+RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.jce.provider.1 = com.ibm.crypto.plus.provider.OpenJCEPlusFIPS [+ \
     {MessageDigest, SHA-1, *}]
+
+RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-JKS.jce.provider.2 = sun.security.provider.Sun [+ \
+    {KeyStore, JKS, *}]
 
 # Test-TLS-PKCS12 Restricted Security mode profile for FIPS 140-3. This profile is a test profile that extends
 # OpenJCEPlusFIPS.FIPS140-3. This profile also includes non-cryptographic algorithms and common configuration
@@ -18,10 +20,12 @@ RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.desc.name = Test-TL
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.desc.default = false
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.extends = RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3
 
+RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.jce.provider.1 = com.ibm.crypto.plus.provider.OpenJCEPlusFIPS [+ \
+    {MessageDigest, SHA-1, *}]
+
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.jce.provider.2 = sun.security.provider.Sun [+ \
     {KeyStore, JKS, *}, \
-    {KeyStore, PKCS12, *}, \
-    {MessageDigest, SHA-1, *}]
+    {KeyStore, PKCS12, *}]
 
 RestrictedSecurity.OpenJCEPlusFIPS.FIPS140-3-Test-TLS-PKCS12.jce.provider.4 = com.sun.crypto.provider.SunJCE [{AlgorithmParameters, PBES2, *}, \
     {AlgorithmParameters, PBEWithHmacSHA256AndAES_256, *}, \

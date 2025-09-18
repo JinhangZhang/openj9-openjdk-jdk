@@ -861,7 +861,7 @@ abstract public class SSLEngineTestCase {
      * SSLEngineTestCase.TEST_MODE is "krb".
      */
     public static void setUpAndStartKDCIfNeeded() {
-        if (TEST_MODE.equals("krb")) {
+        if (TEST_MODE.equals("krb") && !ISFIPS) {
             setUpAndStartKDC();
         }
     }
