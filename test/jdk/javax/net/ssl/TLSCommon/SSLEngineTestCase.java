@@ -840,7 +840,20 @@ abstract public class SSLEngineTestCase {
                     SSLContext.getInstance(TESTED_SECURITY_PROTOCOL);
             sslCtx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
             return sslCtx;
-        } catch (KeyStoreException | IOException | NoSuchAlgorithmException |
+        } catch (NoSuchAlgorithmException nsae) {
+            if (ISFIPS) {
+                if (!TESTED_SECURITY_PROTOCOL.equals("DTLSv1.2") ||
+                    !TESTED_SECURITY_PROTOCOL.equals("TLSv1.2") ||
+                    !TESTED_SECURITY_PROTOCOL.equals("TLSv1.3")) 
+                {
+                    System.out.println("Expected exception msg: <" + nsae.getMessage() + "> is caught.");
+                } else {
+                    throw new Error("Unexpected exception", nase);
+                }
+            } else {
+                throw new Error("Unexpected exception", nase);
+            }
+        } catch (KeyStoreException | IOException |
                 CertificateException | UnrecoverableKeyException |
                 KeyManagementException ex) {
             throw new Error("Unexpected exception", ex);
