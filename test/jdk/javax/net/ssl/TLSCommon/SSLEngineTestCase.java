@@ -848,10 +848,10 @@ abstract public class SSLEngineTestCase {
                 {
                     System.out.println("Expected exception msg: <" + nsae.getMessage() + "> is caught.");
                 } else {
-                    throw new Error("Unexpected exception", nase);
+                    throw new Error("Unexpected exception", nsae);
                 }
             } else {
-                throw new Error("Unexpected exception", nase);
+                throw new Error("Unexpected exception", nsae);
             }
         } catch (KeyStoreException | IOException |
                 CertificateException | UnrecoverableKeyException |
