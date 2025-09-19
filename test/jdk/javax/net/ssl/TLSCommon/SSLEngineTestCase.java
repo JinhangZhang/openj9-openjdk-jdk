@@ -842,11 +842,11 @@ abstract public class SSLEngineTestCase {
             return sslCtx;
         } catch (NoSuchAlgorithmException nsae) {
             if (ISFIPS) {
-                if (!TESTED_SECURITY_PROTOCOL.equals("DTLSv1.2") ||
-                    !TESTED_SECURITY_PROTOCOL.equals("TLSv1.2") ||
-                    !TESTED_SECURITY_PROTOCOL.equals("TLSv1.3")) 
+                if (!(TESTED_SECURITY_PROTOCOL.equals("DTLSv1.2") ||
+                    TESTED_SECURITY_PROTOCOL.equals("TLSv1.2") ||
+                    TESTED_SECURITY_PROTOCOL.equals("TLSv1.3")))
                 {
-                    System.out.println("Expected exception msg: <" + nsae.getMessage() + "> is caught.");
+                    throw new Error("Expected unsupported protocol in FIPS: " + TESTED_SECURITY_PROTOCOL, nsae);
                 } else {
                     throw new Error("Unexpected exception", nsae);
                 }
