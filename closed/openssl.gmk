@@ -122,13 +122,13 @@ endif # CCACHE
 build_openssl :
 ifeq ($(OPENJDK_TARGET_OS), linux)
 	@$(ECHO) Compiling OpenSSL in $(OPENSSL_DIR) for $(OPENSSL_TARGET_EFFECTIVE)$(if $(OPENSSL_CONFIG_CFLAGS), with additional CFLAGS $(OPENSSL_CONFIG_CFLAGS))
-	( $(OPENSSL_CONFIG_SETUP) $(OPENSSL_CONFIG_ENV_EXTRA) $(CD) $(OPENSSL_DIR) && \
+	( set -x; $(OPENSSL_CONFIG_SETUP) $(OPENSSL_CONFIG_ENV_EXTRA) $(CD) $(OPENSSL_DIR) && \
 	  $(PERL) Configure $(OPENSSL_CONFIG_CFLAGS) $(OPENSSL_TARGET_EFFECTIVE) no-makedepend no-tests shared )
 else
 	@$(ECHO) Compiling OpenSSL in $(OPENSSL_DIR) for $(OPENSSL_TARGET)$(if $(OPENSSL_CONFIG_CFLAGS), with additional CFLAGS $(OPENSSL_CONFIG_CFLAGS))
-	( $(OPENSSL_CONFIG_SETUP) $(CD) $(OPENSSL_DIR) && $(PERL) Configure $(OPENSSL_CONFIG_CFLAGS) $(OPENSSL_TARGET) no-makedepend no-tests shared )
+	( set -x; $(OPENSSL_CONFIG_SETUP) $(CD) $(OPENSSL_DIR) && $(PERL) Configure $(OPENSSL_CONFIG_CFLAGS) $(OPENSSL_TARGET) no-makedepend no-tests shared )
 endif
-	$(OPENSSL_PATCH)
-	+ ( $(OPENSSL_MAKE_SETUP) $(CD) $(OPENSSL_DIR) && $(OPENSSL_MAKE) )
+	( set -x; $(OPENSSL_PATCH) )
+	+ ( set -x; $(OPENSSL_MAKE_SETUP) $(CD) $(OPENSSL_DIR) && $(OPENSSL_MAKE) )
 
 .PHONY : build_openssl
