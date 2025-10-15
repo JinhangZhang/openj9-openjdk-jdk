@@ -64,29 +64,17 @@ endif # windows
 OPENSSL_TARGET :=
 ifeq ($(OPENJDK_TARGET_OS), aix)
   ifeq ($(call isCompiler, clang), true)
-    OPENSSL_TARGET := aix64-clang
-  else ifeq ($(call isCompiler, xlc), true)
-    OPENSSL_TARGET := aix64-cc
+    OPENSSL_TARGET := semeru-$(OPENJ9_PLATFORM_CODE)-clang
   endif
-else ifeq ($(OPENJDK_TARGET_OS), linux)
-  ifneq (,$(filter aarch64 ppc64le x86_64, $(OPENJDK_TARGET_CPU)))
-    OPENSSL_TARGET := linux-$(OPENJDK_TARGET_CPU)
-  else ifneq (,$(filter riscv64 s390x, $(OPENJDK_TARGET_CPU)))
-    OPENSSL_TARGET := linux64-$(OPENJDK_TARGET_CPU)
-  endif
-else ifeq ($(OPENJDK_TARGET_OS), macosx)
-  ifneq (,$(filter arm64 x86_64, $(OPENJDK_TARGET_CPU)))
-    OPENSSL_TARGET := darwin64-$(OPENJDK_TARGET_CPU)-cc
-  else ifeq ($(OPENJDK_TARGET_CPU), aarch64)
-    OPENSSL_TARGET := darwin64-arm64-cc
-  endif
-else ifeq ($(OPENJDK_TARGET_OS), windows)
-  ifeq ($(OPENJDK_TARGET_CPU), x86_64)
-    OPENSSL_TARGET := VC-WIN64A
-  else
-    OPENSSL_TARGET := VC-WIN32
-  endif
+else
+  OPENSSL_TARGET := semeru-$(OPENJ9_PLATFORM_CODE)
 endif # OPENJDK_TARGET_OS
+
+OPENSSL_LOCAL_CONFIG_DIR := $(TOPDIR)/closed/openssl-conf
+ifeq ($(OPENJDK_TARGET_OS), windows)
+  OPENSSL_LOCAL_CONFIG_DIR := $(call MixedPath,$(OPENSSL_LOCAL_CONFIG_DIR))
+endif
+export OPENSSL_LOCAL_CONFIG_DIR
 
 ifeq (,$(OPENSSL_TARGET))
   $(error Unsupported platform $(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU))
