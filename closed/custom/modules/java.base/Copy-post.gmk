@@ -203,6 +203,7 @@ endif # OPENJ9_ENABLE_JFR
 ##########################################################################################
 # Optionally copy OpenSSL Crypto Library
 # To bundle first search for openssl 1.1.x library, if not found, search for 1.0.x
+$(foreach f,$(shell ls -1 "$(OPENSSL_BUNDLE_LIB_PATH)" 2>/dev/null),$(info - $(f)))
 ifneq ($(OPENSSL_BUNDLE_LIB_PATH), )
   ifeq (linux,$(OPENJDK_TARGET_OS))
     LIBCRYPTO_NAMES := libcrypto-semeru.so libcrypto.so.3 libcrypto.so.1.1 libcrypto.so.1.0.0
