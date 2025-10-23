@@ -65,6 +65,8 @@ OPENSSL_TARGET :=
 ifeq ($(OPENJDK_TARGET_OS), aix)
   ifeq ($(call isCompiler, clang), true)
     OPENSSL_TARGET := semeru-$(OPENJ9_PLATFORM_CODE)-clang
+  else
+    OPENSSL_TARGET := semeru-$(OPENJ9_PLATFORM_CODE)
   endif
 else
   OPENSSL_TARGET := semeru-$(OPENJ9_PLATFORM_CODE)
