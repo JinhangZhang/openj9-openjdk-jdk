@@ -206,6 +206,10 @@ endif # OPENJ9_ENABLE_JFR
 ##########################################################################################
 # Optionally copy OpenSSL Crypto Library
 # To bundle first search for openssl 1.1.x library, if not found, search for 1.0.x
+$(info Listing files under OPENSSL_BUNDLE_LIB_PATH...)
+ifneq ($(strip $(OPENSSL_BUNDLE_LIB_PATH)),)
+  $(foreach f,$(wildcard $(OPENSSL_BUNDLE_LIB_PATH)/*),$(info [OPENSSL_BUNDLE] $(f)))
+endif
 ifneq ($(OPENSSL_BUNDLE_LIB_PATH), )
   ifeq (linux,$(OPENJDK_TARGET_OS))
     LIBCRYPTO_NAMES := libcrypto-semeru.so libcrypto.so.3 libcrypto.so.1.1 libcrypto.so.1.0.0
@@ -222,9 +226,9 @@ ifneq ($(OPENSSL_BUNDLE_LIB_PATH), )
     # OpenSSL 1.1.1 on AIX has switched to use archive library files (natural way)
     # instead of 'libcrypto.so' files.
     # See https://github.com/openssl/openssl/pull/6487.
-    LIBCRYPTO_NAMES := libcrypto64.so.3 libcrypto.so.3 libcrypto.so.1.1 libcrypto.so.1.0.0
+    LIBCRYPTO_NAMES := libcrypto-semeru.so libcrypto64.so.3 libcrypto.so.3 libcrypto.so.1.1 libcrypto.so.1.0.0
   else
-    LIBCRYPTO_NAMES := libcrypto.so
+    LIBCRYPTO_NAMES := libcrypto-semeru.so libcrypto.so
   endif
   LIBCRYPTO_PATH := $(firstword $(wildcard $(addprefix $(OPENSSL_BUNDLE_LIB_PATH)/, $(LIBCRYPTO_NAMES))))
   ifeq ($(LIBCRYPTO_PATH), )
