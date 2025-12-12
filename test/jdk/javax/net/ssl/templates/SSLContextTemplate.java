@@ -167,7 +167,7 @@ public abstract class SSLContextTemplate {
 
         } else {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            ks = KeyStore.getInstance("JKS");
+            ks = KeyStore.getInstance("PKCS12");
             ks.load(null, null);
 
             for (Cert endEntityCert : endEntityCerts) {
