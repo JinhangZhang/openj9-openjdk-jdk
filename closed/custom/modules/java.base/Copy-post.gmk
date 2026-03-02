@@ -244,12 +244,20 @@ ifneq ($(OPENSSL_BUNDLE_LIB_PATH), )
 	install_name_tool -id "@rpath/$(@F)" $@
   else ifeq (windows,$(OPENJDK_TARGET_OS))
 	$(CHMOD) a+rx $@
+  else ifeq (aix,$(OPENJDK_TARGET_OS))
+	$(CHMOD) a+rx $@
   endif
 	$(call CodesignFile,"$@")
 
   ifeq (true,$(OPENJ9_ENABLE_JITSERVER))
-    ifeq (linux,$(OPENJDK_TARGET_OS))
-      LIBSSL_NAMES := libssl-semeru.so libssl.so.3 libssl.so.1.1 libssl.so.1.0.0
+    ifneq (,$(filter $(OPENJDK_TARGET_OS), linux aix))
+      ifeq (linux,$(OPENJDK_TARGET_OS))
+        LIBSSL_NAMES := libssl-semeru.so libssl.so.3 libssl.so.1.1 libssl.so.1.0.0
+      else ifeq (aix,$(OPENJDK_TARGET_OS))
+        # 对应 AIX 的可能命名
+        LIBSSL_NAMES := libssl-semeru.so libssl64.so.3 libssl.so.3 libssl.so.1.1
+      endif
+
       LIBSSL_PATH := $(firstword $(wildcard $(addprefix $(OPENSSL_BUNDLE_LIB_PATH)/, $(LIBSSL_NAMES))))
 
       ifneq ($(LIBSSL_PATH), )
@@ -257,6 +265,9 @@ ifneq ($(OPENSSL_BUNDLE_LIB_PATH), )
         TARGETS += $(LIBSSL_TARGET_LIB)
         $(LIBSSL_TARGET_LIB) : $(LIBSSL_PATH)
 			$(call install-file)
+	    ifeq (aix,$(OPENJDK_TARGET_OS))
+			$(CHMOD) a+rx $@
+      	endif
 			$(call CodesignFile,"$@")
       endif # LIBSSL_PATH
     endif # OPENJDK_TARGET_OS
